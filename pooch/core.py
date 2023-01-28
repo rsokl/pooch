@@ -13,9 +13,21 @@ import contextlib
 from pathlib import Path
 import shlex
 import shutil
+from typing import (
+    BinaryIO,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import requests
 import requests.exceptions
+from typing_extensions import TypeAlias, Literal
 
 from .hashes import hash_matches, file_hash
 from .utils import (
@@ -30,15 +42,52 @@ from .utils import (
 from .downloaders import choose_downloader
 
 
+T = TypeVar("T")
+Actions: TypeAlias = Literal["download", "update", "fetch"]
+Processor: TypeAlias = Callable[[str, Actions, Union[None, "Pooch"]], T]
+Downloader: TypeAlias = Callable[[str, Union[str, BinaryIO], "Pooch"], None]
+FileName: TypeAlias = str
+Hash: TypeAlias = str
+URL: TypeAlias = str
+Registry: TypeAlias = Dict[FileName, Hash]
+URLs: TypeAlias = Dict[FileName, URL]
+
+
+@overload
 def retrieve(
-    url,
-    known_hash,
-    fname=None,
-    path=None,
-    processor=None,
-    downloader=None,
-    progressbar=False,
-):
+    url: str,
+    known_hash: Union[str, None],
+    fname: Optional[str] = None,
+    path: Optional[Union[str, Path]] = ...,
+    processor: Literal[None] = ...,
+    downloader: Optional[Downloader] = ...,
+    progressbar: bool = ...,
+) -> str:
+    ...
+
+
+@overload
+def retrieve(
+    url: str,
+    known_hash: Union[str, None],
+    fname: Optional[str],
+    path: Optional[Union[str, Path]],
+    processor: Processor[T],
+    downloader: Optional[Downloader] = ...,
+    progressbar: bool = ...,
+) -> T:
+    ...
+
+
+def retrieve(
+    url: str,
+    known_hash: Union[str, None],
+    fname: Optional[str] = None,
+    path: Optional[Union[str, Path]] = None,
+    processor: Optional[Processor[T]] = None,
+    downloader: Optional[Downloader] = None,
+    progressbar: bool = False,
+) -> Union[str, T]:
     """
     Download and cache a single file locally.
 
@@ -254,16 +303,16 @@ def retrieve(
 
 
 def create(
-    path,
-    base_url,
-    version=None,
-    version_dev="master",
-    env=None,
-    registry=None,
-    urls=None,
-    retry_if_failed=0,
-    allow_updates=True,
-):
+    path: Union[str, Path, Tuple[str, ...], List[str]],
+    base_url: str,
+    version: Optional[str] = None,
+    version_dev: str = "master",
+    env: Optional[str] = None,
+    registry: Optional[Registry] = None,
+    urls: Optional[URLs] = None,
+    retry_if_failed: int = 0,
+    allow_updates: Union[bool, str] = True,
+) -> "Pooch":
     """
     Create a :class:`~pooch.Pooch` with sensible defaults to fetch data files.
 
@@ -443,7 +492,7 @@ class Pooch:
 
     Parameters
     ----------
-    path : str
+    path : str or PathLike
         The path to the local data storage folder. The path must exist in the
         file system.
     base_url : str
@@ -477,12 +526,12 @@ class Pooch:
 
     def __init__(
         self,
-        path,
-        base_url,
-        registry=None,
-        urls=None,
-        retry_if_failed=0,
-        allow_updates=True,
+        path: Union[str, Path],
+        base_url: str,
+        registry: Optional[Registry] = None,
+        urls: Optional[URLs] = None,
+        retry_if_failed: int = 0,
+        allow_updates: bool = True,
     ):
         self.path = path
         self.base_url = base_url
@@ -496,16 +545,22 @@ class Pooch:
         self.allow_updates = allow_updates
 
     @property
-    def abspath(self):
+    def abspath(self) -> Path:
         "Absolute path to the local storage"
         return Path(os.path.abspath(os.path.expanduser(str(self.path))))
 
     @property
-    def registry_files(self):
+    def registry_files(self) -> List[FileName]:
         "List of file names on the registry"
         return list(self.registry)
 
-    def fetch(self, fname, processor=None, downloader=None, progressbar=False):
+    def fetch(
+        self,
+        fname,
+        processor: Optional[Processor] = None,
+        downloader: Optional[Downloader] = None,
+        progressbar: bool = False,
+    ) -> str:
         """
         Get the absolute path to a file in the local storage.
 
