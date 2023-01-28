@@ -23,10 +23,10 @@ from . import _version
 
 
 # Add a "v" to the version number
-__version__ = f"v{_version.version}"
+__version__ = f"v{_version.version}"  # type: ignore
 
 
-def test(doctest=True, verbose=True, coverage=False):
+def test(doctest: bool = True, verbose: bool = True, coverage: bool = False):
     """
     Run the test suite.
 
