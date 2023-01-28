@@ -13,3 +13,6 @@ write_to =  "pooch/_version.py"
 markers = [
     "network: test requires network access",
 ]
+
+[tool.pyright]
+reportUnnecessaryTypeIgnoreComment = true
